@@ -15,6 +15,13 @@ Every worktree lives at `<main checkout>/.worktrees/<type>/<name>`, whichever wo
 brew install rolemodel/rmr/git-wt
 ```
 
+Or in a Brewfile. Homebrew won't load a formula from a tap you haven't trusted, and `brew bundle` only trusts what the Brewfile says to:
+
+```ruby
+tap "rolemodel/rmr", trusted: true
+brew "rolemodel/rmr/git-wt"
+```
+
 Then add the `wt` function to `~/.zshrc` (or `~/.bashrc`):
 
 ```sh
