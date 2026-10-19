@@ -1,0 +1,138 @@
+.Dd October 19, 2026
+.Dt GIT-WT 1
+.Os
+.Sh NAME
+.Nm git-wt
+.Nd create or switch to a typed, provisioned git worktree
+.Sh SYNOPSIS
+.Nm git wt
+.Op Fl -from Ar ref
+.Op Fl -no-provision | Fl -provision-only
+.Ar type
+.Ar name
+.Nm git wt
+.Fl -init Ar zsh | bash
+.Nm git wt
+.Fl h
+.Sh DESCRIPTION
+.Nm
+checks out branch
+.Ar type Ns / Ns Ar name
+in its own worktree and prints that worktree's absolute path on stdout.
+All progress goes to stderr, so the output can be captured:
+.Bd -literal -offset indent
+cd "$(git wt feat 1234-login)"
+.Ed
+.Pp
+New worktrees live under the main checkout at
+.Pa .worktrees/ Ns Ar type Ns / Ns Ar name ,
+no matter which worktree
+.Nm
+is run from, so every worktree is a sibling and none is nested inside another.
+If the branch is already checked out in any worktree, that worktree's path is
+printed and nothing is created.
+.Pp
+The branch is resolved in order: an existing local branch, then a branch on
+the remote (tracked locally), then a new branch from
+.Ar ref
+if
+.Fl -from
+was given, otherwise from the default branch named by
+.Li origin/HEAD
+(the local copy of that branch when one exists).
+New branches get no upstream.
+.Ss Setup of a new worktree
+.Bl -bullet
+.It
+Adds
+.Pa /.worktrees/
+to
+.Pa .git/info/exclude
+if it is not already ignored.
+.It
+Copies gitignored files that a fresh checkout lacks, when they exist in the
+main checkout:
+.Pa config/master.key ,
+.Pa config/credentials/{development,test}.key ,
+.Pa .env ,
+.Pa .env.local ,
+.Pa .env.development.local ,
+.Pa .env_overrides.rb ,
+.Pa .vscode/settings.json .
+.It
+Clones
+.Pa storage/
+(local Active Storage blobs and Rails 8 SQLite databases) using APFS
+copy-on-write, falling back to a plain copy.
+.It
+Runs the repository's
+.Pa bin/worktree-setup ,
+or
+.Ql bin/setup --skip-server
+if there is no such hook.
+The hook must be idempotent.
+.El
+.Sh OPTIONS
+.Bl -tag -width Ds
+.It Fl -from Ar ref
+Start a new branch from
+.Ar ref
+(a branch, tag or commit; use
+.Li HEAD
+to branch from the current worktree).
+Ignored with a warning if the branch already exists.
+.It Fl -no-provision
+Create the worktree and print its path, but skip the setup hook.
+Exits 3 instead of 0 if the worktree already existed.
+.It Fl -provision-only
+Run the setup hook in the existing worktree for
+.Ar type Ns / Ns Ar name .
+.It Fl -init Ar zsh | bash
+Print a
+.Ic wt
+shell function that runs
+.Nm
+and then changes into the worktree, setting it up after the
+.Ic cd
+so an interrupted setup still leaves you in place.
+Add it to your shell startup file:
+.Dl eval \&"$(git wt --init zsh)"
+.It Fl h
+Print a usage line.
+.El
+.Sh ENVIRONMENT
+.Bl -tag -width Ds
+.It Ev PORT
+Set for the setup hook to a stable port derived from the branch name
+(3001\(en3900), so dev servers in different worktrees do not collide.
+The hook decides where to persist it.
+.El
+.Sh EXIT STATUS
+.Bl -tag -width Ds
+.It 0
+The worktree is ready, or already existed.
+.It 1
+Usage error, or not inside a git repository.
+.It 3
+With
+.Fl -no-provision :
+the worktree already existed, so there is nothing to provision.
+.El
+.Sh EXAMPLES
+Start work in a new sibling worktree from anywhere in the repository:
+.Dl git wt feat 1234-login
+.Pp
+Spin off a follow-up branch from the one you are on:
+.Dl git wt --from HEAD feat 1234-login-part-2
+.Pp
+Open a new session of some tool in a fresh worktree:
+.Dl cd \&"$(git wt fix 99-typo)" && $EDITOR .
+.Sh SEE ALSO
+.Xr git-worktree 1
+.Sh CAVEATS
+Worktrees share the Postgres databases named in
+.Pa config/database.yml
+unless the repository's setup hook gives each worktree its own.
+.Pp
+A SQLite database being written by a running server can be copied in an
+inconsistent state.

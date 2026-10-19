@@ -1,0 +1,59 @@
+#!/usr/bin/env bash
+#
+# End-to-end checks for git-wt against throwaway repos. Run: test/run
+
+set -uo pipefail
+
+export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1
+export GIT_AUTHOR_NAME=t GIT_AUTHOR_EMAIL=t@t GIT_COMMITTER_NAME=t GIT_COMMITTER_EMAIL=t@t
+export PATH="$(cd "$(dirname "$0")/../bin" && pwd):$PATH"
+
+sandbox=$(cd "$(mktemp -d)" && pwd -P)
+trap 'rm -rf "$sandbox"' EXIT
+failures=0
+
+check() {
+    local label=$1
+    shift
+    if "$@"; then
+        printf 'ok   %s\n' "$label"
+    else
+        printf 'FAIL %s\n' "$label"
+        failures=$((failures + 1))
+    fi
+}
+
+# A clone whose remote default branch is `master`, with a Rails-ish ignored secret and blob.
+git init -q --bare -b master "$sandbox/origin.git"
+git clone -q "$sandbox/origin.git" "$sandbox/app" 2>/dev/null
+cd "$sandbox/app" || exit 1
+mkdir -p config storage/ab
+printf '/config/master.key\n/storage/*\n!/storage/.keep\n' >.gitignore
+touch storage/.keep
+git add -A && git commit -q -m init && git push -q origin master
+git remote set-head origin -a >/dev/null
+echo secret >config/master.key
+echo blob >storage/ab/key
+
+path=$(git wt feat a 2>/dev/null)
+check "prints the new worktree path" [ "$path" = "$sandbox/app/.worktrees/feat/a" ]
+check "branches from the remote default branch" [ "$(git -C "$path" rev-parse HEAD)" = "$(git rev-parse master)" ]
+check "sets no upstream" [ -z "$(git -C "$path" rev-parse --abbrev-ref '@{u}' 2>/dev/null)" ]
+check "copies ignored secrets" [ -f "$path/config/master.key" ]
+check "clones storage" [ -f "$path/storage/ab/key" ]
+check "ignores .worktrees" git check-ignore -q .worktrees/x
+
+git wt --no-provision feat a >/dev/null 2>&1
+check "exits 3 for an existing worktree under --no-provision" [ $? -eq 3 ]
+
+cd "$path" && git commit -q --allow-empty -m a-only
+sibling=$(git wt --from HEAD feat b 2>/dev/null)
+check "creates siblings, not nested worktrees" [ "$sibling" = "$sandbox/app/.worktrees/feat/b" ]
+check "--from branches from the given ref" [ "$(git -C "$sibling" log -1 --format=%s)" = a-only ]
+
+git -C "$sandbox/app" worktree add -q -b deps/x "$sandbox/app/.worktrees/x" master
+check "reuses a worktree that already has the branch" [ "$(git wt deps x 2>/dev/null)" = "$sandbox/app/.worktrees/x" ]
+
+check "--init prints a wt function" bash -c 'eval "$(git wt --init bash)" && declare -f wt >/dev/null'
+
+exit $((failures > 0))

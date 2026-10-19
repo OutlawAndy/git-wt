@@ -1,0 +1,265 @@
+#!/usr/bin/env bash
+#
+# git-wt — create or switch to a typed git worktree. User docs: man git-wt
+#
+#   git wt <type> <name>      e.g. git wt feat 1234-xyz
+#
+# Creates <main>/.worktrees/<type>/<name> on branch <type>/<name>, carries over
+# the gitignored files a Rails app needs to boot, provisions it via the repo's
+# own bin/worktree-setup hook (or bin/setup), and prints the worktree path.
+# If the branch is already checked out in some worktree, that one is reused.
+#
+# The path is the ONLY thing written to stdout; all progress output goes to
+# stderr. That contract is what lets a shell wrapper do `cd "$(git wt feat foo)"`.
+# A child process can't change its parent's cwd, so the `wt` shell function
+# printed by `--init` keeps the `cd` and calls this for everything else. Keep the logic here, not in the wrappers.
+#
+# Two flags let a wrapper cd into the worktree BEFORE the slow part runs:
+#
+#   --no-provision    create the worktree, print its path, skip the setup hook
+#   --provision-only  run the setup hook in an already-created worktree
+#
+# --no-provision exits 3 (not 0) when the worktree already existed, so a wrapper
+# can tell "created, needs provisioning" from "switching to one you already
+# have" and skip the hook in the latter case. The path is printed either way.
+#
+# That ordering matters. Provisioning is minutes of a repo's own `mix setup` /
+# `bundle install` / … , and interrupting it killed this script before it ever
+# printed the path — so the wrapper's `cd` never ran and you were left in the
+# directory you started from, with a half-provisioned worktree elsewhere.
+# Create → cd → provision instead, and a Ctrl-C costs only the provisioning,
+# which the hook is required to be idempotent about anyway.
+
+set -euo pipefail
+
+shell_init() {
+    case "$1" in
+    zsh | bash)
+        cat <<'SH'
+wt() {
+  local dir rc
+  dir=$(git wt --no-provision "$@"); rc=$?
+  [[ -n $dir ]] || return $rc
+  cd "$dir" || return
+  (( rc == 3 )) || git wt --provision-only "$@" >/dev/null
+}
+SH
+        ;;
+    *)
+        printf 'git-wt: --init supports zsh or bash, not %s\n' "$1" >&2
+        exit 1
+        ;;
+    esac
+}
+
+do_create=1
+do_provision=1
+from_ref=
+while [ "$#" -gt 0 ]; do
+    case "$1" in
+    --no-provision)
+        do_provision=0
+        shift
+        ;;
+    --provision-only)
+        do_create=0
+        shift
+        ;;
+    --from)
+        from_ref=${2:?--from needs a ref}
+        shift 2
+        ;;
+    --init)
+        shell_init "${2:-}"
+        exit 0
+        ;;
+    -h)
+        printf 'usage: git wt [--from <ref>] [--no-provision | --provision-only] <type> <name>\n'
+        printf '       git wt --init <zsh|bash>\n'
+        exit 0
+        ;;
+    --)
+        shift
+        break
+        ;;
+    -*)
+        printf 'git-wt: unknown option %s\n' "$1" >&2
+        exit 1
+        ;;
+    *) break ;;
+    esac
+done
+
+if [ -t 2 ]; then
+    reset=$(tput sgr0 2>/dev/null || true)
+    bold=$(tput bold 2>/dev/null || true)
+    cyan=$(tput setaf 6 2>/dev/null || true)
+    yellow=$(tput setaf 3 2>/dev/null || true)
+    green=$(tput setaf 2 2>/dev/null || true)
+    red=$(tput setaf 1 2>/dev/null || true)
+    dim=$(tput setaf 8 2>/dev/null || true)
+else
+    reset= bold= cyan= yellow= green= red= dim=
+fi
+
+say() { printf '%s\n' "$*" >&2; }
+
+if [ "$#" -ne 2 ]; then
+    say "${red}Usage: git wt <type> <name>${reset}"
+    say "${dim}  e.g. git wt feat 1234-xyz${reset}"
+    exit 1
+fi
+
+type=$1
+name=$2
+branch_name="$type/$name"
+
+if ! git_common=$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null); then
+    say "${red}✖  Not inside a git repository${reset}"
+    exit 1
+fi
+# The first `git worktree list` entry is always the main checkout, wherever we're called from.
+main_root=$(git worktree list --porcelain | sed -n '1s/^worktree //p')
+existing_path=$(git worktree list --porcelain |
+    awk -v ref="refs/heads/$branch_name" '/^worktree /{p=substr($0,10)} $0=="branch "ref{print p; exit}')
+worktree_path=${existing_path:-"$main_root/.worktrees/$type/$name"}
+
+# Each worktree runs its own server; a stable per-branch port keeps them from colliding.
+# ponytail: hash can collide (~1/900), add a free-port scan if that ever bites.
+dev_port=$((3001 + $(printf '%s' "$branch_name" | cksum | cut -d' ' -f1) % 900))
+export PORT=$dev_port
+
+provision() {
+    cd "$worktree_path"
+
+    # Provision via the project's own setup hook. The repo owns what "set up"
+    # means (deps, per-worktree DBs, assets, …); we just run it.
+    # PORT is exported so the hook can persist it wherever the app reads env.
+    # Rails' bin/setup is idempotent too; --skip-server stops 7.2+ from exec'ing bin/dev.
+    if [ -x ./bin/worktree-setup ]; then
+        hook=(./bin/worktree-setup)
+    elif [ -x ./bin/setup ]; then
+        hook=(./bin/setup --skip-server)
+    else
+        say "${yellow}⚠  No bin/worktree-setup or bin/setup in this repo — skipping provisioning.${reset}"
+        return
+    fi
+    say "${cyan}⚙  Provisioning via ${hook[*]}…${reset}"
+    say "${dim}   Ctrl-C is safe here — the worktree already exists and the${reset}"
+    say "${dim}   hook is idempotent; re-run it with: ${hook[*]}${reset}"
+    if ! "${hook[@]}" >&2; then
+        say "${red}✖  ${hook[*]} failed — finish setup manually${reset}"
+    fi
+}
+
+ready() {
+    say "${green}✔  Ready${reset} ${dim}— dev server: PORT=$dev_port bin/dev${reset}"
+}
+
+if [ "$do_create" -eq 0 ]; then
+    if [ ! -d "$worktree_path" ]; then
+        say "${red}✖  No such worktree: ${worktree_path}${reset}"
+        exit 1
+    fi
+    provision
+    ready
+    printf '%s\n' "$worktree_path"
+    exit 0
+fi
+
+if [ -n "$existing_path" ]; then
+    say "${cyan}🔍  Existing worktree detected: ${bold}${branch_name}${reset}"
+    say "${dim}  → ${worktree_path}${reset}"
+    printf '%s\n' "$worktree_path"
+    # 3, not 0, under --no-provision: nothing was created, so the caller has
+    # nothing to provision. Plain `wt` keeps exiting 0 — it never provisions an
+    # existing worktree either, and callers shouldn't have to know that.
+    if [ "$do_provision" -eq 0 ]; then exit 3; fi
+    exit 0
+fi
+
+say "${yellow}⚙  Setting up new worktree: ${bold}${branch_name}${reset}"
+say "${dim}  → ${worktree_path}${reset}"
+
+mkdir -p "$(dirname "$worktree_path")"
+if ! git -C "$main_root" check-ignore -q .worktrees/x; then
+    mkdir -p "$git_common/info"
+    printf '/.worktrees/\n' >>"$git_common/info/exclude"
+    say "${dim}🙈  Added /.worktrees/ to .git/info/exclude${reset}"
+fi
+
+# Branch resolution order:
+#   1) existing local branch
+#   2) existing remote branch (create a local tracking branch)
+#   3) new branch from --from, else the default branch (local copy if present)
+remote_name=origin
+if ! git remote get-url "$remote_name" >/dev/null 2>&1; then
+    remote_name=$(git remote | head -n 1)
+fi
+
+default_base() {
+    local remote_head
+    remote_head=$(git symbolic-ref -q --short "refs/remotes/$remote_name/HEAD" 2>/dev/null) || {
+        git config init.defaultBranch || echo main
+        return
+    }
+    if git show-ref --verify --quiet "refs/heads/${remote_head#"$remote_name/"}"; then
+        echo "${remote_head#"$remote_name/"}"
+    else
+        echo "$remote_head"
+    fi
+}
+
+ignore_from() {
+    if [ -n "$from_ref" ]; then
+        say "${yellow}⚠  $branch_name already exists — ignoring --from $from_ref${reset}"
+    fi
+}
+
+if git show-ref --verify --quiet "refs/heads/$branch_name"; then
+    ignore_from
+    git worktree add "$worktree_path" "$branch_name" >&2
+elif [ -n "$remote_name" ] &&
+    git ls-remote --exit-code --heads "$remote_name" "$branch_name" >/dev/null 2>&1; then
+    ignore_from
+    # Ensure the remote-tracking ref exists locally before creating the worktree.
+    git fetch --no-tags "$remote_name" "$branch_name" >/dev/null 2>&1
+    git worktree add --track -b "$branch_name" "$worktree_path" "$remote_name/$branch_name" >&2
+else
+    # --no-track: branching from origin/<default> must not make that its upstream.
+    base=${from_ref:-$(default_base)}
+    say "${dim}🌱  Branching from $base${reset}"
+    git worktree add --no-track -b "$branch_name" "$worktree_path" "$base" >&2
+fi
+
+# Gitignored files a fresh checkout lacks: secrets, local env, editor config.
+for rel_path in config/master.key config/credentials/development.key config/credentials/test.key \
+    .env .env.local .env.development.local .env_overrides.rb .vscode/settings.json; do
+    if [ -f "$main_root/$rel_path" ]; then
+        mkdir -p "$(dirname "$worktree_path/$rel_path")"
+        cp "$main_root/$rel_path" "$worktree_path/$rel_path"
+        say "${dim}📋  Copied $rel_path${reset}"
+    fi
+done
+
+# Local Active Storage blobs (and Rails 8 SQLite DBs) live in storage/. Without
+# them every attachment the shared DB points at 404s. -c clones on APFS, so it's
+# instant and costs no disk until a side writes.
+# ponytail: a SQLite DB mid-write in main can copy torn; stop main's server first if it matters.
+if [ -n "$(ls -A "$main_root/storage" 2>/dev/null | grep -vx .keep)" ]; then
+    mkdir -p "$worktree_path/storage"
+    cp -cR "$main_root/storage/." "$worktree_path/storage/" 2>/dev/null ||
+        cp -R "$main_root/storage/." "$worktree_path/storage/"
+    say "${dim}📦  Cloned storage/${reset}"
+fi
+
+cd "$worktree_path"
+
+if [ "$do_provision" -eq 1 ]; then
+    provision
+    ready
+else
+    say "${green}✔  Worktree created — provision with: git wt --provision-only $type $name${reset}"
+fi
+
+printf '%s\n' "$worktree_path"
