@@ -1,0 +1,32 @@
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      bump-type:
+        type: choice
+        options: [patch, minor, major]
+        default: minor
+      changelog:
+        description: Changelog bullets (separate with $>). Leave blank to use the Unreleased notes or draft them from the commits.
+        type: string
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+  id-token: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name == 'workflow_dispatch' && 'bump' || github.ref }}
+
+jobs:
+  release:
+    uses: RoleModel/actions/.github/workflows/release.yml@v3
+    with:
+      bump-type: ${{ inputs.bump-type }}
+      changelog: ${{ inputs.changelog }}
+      version-file: bin/git-wt
+      app-client-id: ${{ vars.VERSION_MANAGER_CLIENT_ID }}
+    secrets:
+      app-private-key: ${{ secrets.VERSION_MANAGER_PRIVATE_KEY }}

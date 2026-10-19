@@ -32,6 +32,8 @@
 
 set -euo pipefail
 
+VERSION="0.1.0"
+
 shell_init() {
     case "$1" in
     zsh | bash)
@@ -71,6 +73,10 @@ while [ "$#" -gt 0 ]; do
         ;;
     --init)
         shell_init "${2:-}"
+        exit 0
+        ;;
+    --version)
+        printf 'git-wt %s\n' "$VERSION"
         exit 0
         ;;
     -h)

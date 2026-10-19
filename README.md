@@ -43,3 +43,5 @@ Call `git wt` directly, not the `wt` function. The worktree's absolute path is t
 ```sh
 test/run
 ```
+
+To release, run the **Release** workflow from the Actions tab and pick a version bump. It bumps `VERSION` in `bin/git-wt`, moves the Unreleased notes in `CHANGELOG.md` under the new version, then tags and publishes a GitHub release. The tap picks up the new release on its own.

@@ -13,7 +13,7 @@
 .Nm git wt
 .Fl -init Ar zsh | bash
 .Nm git wt
-.Fl h
+.Fl -version | Fl h
 .Sh DESCRIPTION
 .Nm
 checks out branch
@@ -97,6 +97,8 @@ and then changes into the worktree, setting it up after the
 so an interrupted setup still leaves you in place.
 Add it to your shell startup file:
 .Dl eval \&"$(git wt --init zsh)"
+.It Fl -version
+Print the version.
 .It Fl h
 Print a usage line.
 .El
