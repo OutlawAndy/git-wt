@@ -12,7 +12,7 @@ Every worktree lives at `<main checkout>/.worktrees/<type>/<name>`, whichever wo
 ## Install
 
 ```sh
-brew install rolemodel/tap/git-wt
+brew install rolemodel/rmr/git-wt
 ```
 
 Then add the `wt` function to `~/.zshrc` (or `~/.bashrc`):
