@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## [v0.2.0] Oct 21, 2026
 
 - `git wt --remove [<type> [<name>]]` removes one worktree, every worktree of a type, or every worktree under `.worktrees/`, then deletes their merged branches
 
@@ -16,5 +16,6 @@
 - New worktrees get the gitignored Rails secrets and env files, a clone of `storage/`, and a per-branch `PORT`
 - `--init zsh|bash` prints the `wt` function that `cd`s into the worktree
 
+[v0.2.0]: https://github.com/OutlawAndy/git-wt/releases/tag/v0.2.0
 [v0.1.1]: https://github.com/OutlawAndy/git-wt/releases/tag/v0.1.1
 [v0.1.0]: https://github.com/OutlawAndy/git-wt/releases/tag/v0.1.0
