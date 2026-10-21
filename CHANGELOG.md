@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- `git wt --remove [<type> [<name>]]` removes one worktree, every worktree of a type, or every worktree under `.worktrees/`, then deletes their merged branches
+
 ## [v0.1.1] Oct 19, 2026
 
 - `git wt --version`

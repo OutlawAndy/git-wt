@@ -54,6 +54,28 @@ check "--from branches from the given ref" [ "$(git -C "$sibling" log -1 --forma
 git -C "$sandbox/app" worktree add -q -b deps/x "$sandbox/app/.worktrees/x" master
 check "reuses a worktree that already has the branch" [ "$(git wt deps x 2>/dev/null)" = "$sandbox/app/.worktrees/x" ]
 
+cd "$sandbox/app" || exit 1
+check "--remove <type> <name> prints the main checkout" [ "$(git wt --remove feat b 2>/dev/null)" = "$sandbox/app" ]
+check "--remove <type> <name> removes only that worktree" [ ! -e "$sibling" -a -d "$path" ]
+
+touch "$path/untracked"
+git wt --remove feat >/dev/null 2>&1
+check "--remove refuses a dirty worktree" [ $? -eq 1 ]
+check "--remove leaves the dirty worktree" [ -f "$path/untracked" ]
+rm "$path/untracked"
+
+git wt --no-provision --remove feat >/dev/null 2>&1
+check "--remove exits 3 under --no-provision" [ $? -eq 3 ]
+check "--remove <type> removes the type's directory" [ ! -e "$sandbox/app/.worktrees/feat" ]
+
+git wt fix c >/dev/null 2>&1
+git wt --remove >/dev/null 2>&1
+check "--remove removes every worktree under .worktrees" [ -z "$(ls -A "$sandbox/app/.worktrees")" ]
+check "--remove deletes merged branches" [ -z "$(git branch --list fix/c)" ]
+check "--remove keeps unmerged branches" git show-ref --verify --quiet refs/heads/feat/a
+git wt --remove >/dev/null 2>&1
+check "--remove with nothing to remove fails" [ $? -eq 1 ]
+
 check "--init prints a wt function" bash -c 'eval "$(git wt --init bash)" && declare -f wt >/dev/null'
 
 exit $((failures > 0))

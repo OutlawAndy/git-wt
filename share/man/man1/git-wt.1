@@ -11,6 +11,9 @@
 .Ar type
 .Ar name
 .Nm git wt
+.Fl -remove
+.Op Ar type Op Ar name
+.Nm git wt
 .Fl -init Ar zsh | bash
 .Nm git wt
 .Fl -version | Fl h
@@ -87,6 +90,23 @@ Exits 3 instead of 0 if the worktree already existed.
 .It Fl -provision-only
 Run the setup hook in the existing worktree for
 .Ar type Ns / Ns Ar name .
+.It Fl -remove Op Ar type Op Ar name
+Remove the worktree for branch
+.Ar type Ns / Ns Ar name ,
+every worktree under
+.Pa .worktrees/ Ns Ar type ,
+or, with no arguments, every worktree under
+.Pa .worktrees/ .
+Each goes through
+.Ql git worktree remove ,
+which refuses one with modified or untracked files; the rest are still removed.
+Each removed worktree's branch is then deleted with
+.Ql git branch -d ,
+which keeps a branch that is not merged.
+Prints the main checkout's path, so
+.Ic wt
+leaves a removed worktree; exits 3 under
+.Fl -no-provision .
 .It Fl -init Ar zsh | bash
 Print a
 .Ic wt
@@ -114,11 +134,15 @@ The hook decides where to persist it.
 .It 0
 The worktree is ready, or already existed.
 .It 1
-Usage error, or not inside a git repository.
+Usage error, not inside a git repository, or
+.Fl -remove
+matched nothing or could not remove a worktree.
 .It 3
 With
 .Fl -no-provision :
-the worktree already existed, so there is nothing to provision.
+the worktree already existed, or
+.Fl -remove
+succeeded, so there is nothing to provision.
 .El
 .Sh EXAMPLES
 Start work in a new sibling worktree from anywhere in the repository:
@@ -129,6 +153,9 @@ Spin off a follow-up branch from the one you are on:
 .Pp
 Open a new session of some tool in a fresh worktree:
 .Dl cd \&"$(git wt fix 99-typo)" && $EDITOR .
+.Pp
+Clean up after every feature branch at once:
+.Dl git wt --remove feat
 .Sh SEE ALSO
 .Xr git-worktree 1
 .Sh CAVEATS
