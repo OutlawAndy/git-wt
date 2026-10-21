@@ -3,6 +3,7 @@
 # git-wt — create or switch to a typed git worktree. User docs: man git-wt
 #
 #   git wt <type> <name>      e.g. git wt feat 1234-xyz
+#   git wt --remove [<type> [<name>]]
 #
 # Creates <main>/.worktrees/<type>/<name> on branch <type>/<name>, carries over
 # the gitignored files a Rails app needs to boot, provisions it via the repo's
@@ -56,6 +57,7 @@ SH
 
 do_create=1
 do_provision=1
+do_remove=0
 from_ref=
 while [ "$#" -gt 0 ]; do
     case "$1" in
@@ -65,6 +67,10 @@ while [ "$#" -gt 0 ]; do
         ;;
     --provision-only)
         do_create=0
+        shift
+        ;;
+    --remove)
+        do_remove=1
         shift
         ;;
     --from)
@@ -81,6 +87,7 @@ while [ "$#" -gt 0 ]; do
         ;;
     -h)
         printf 'usage: git wt [--from <ref>] [--no-provision | --provision-only] <type> <name>\n'
+        printf '       git wt --remove [<type> [<name>]]\n'
         printf '       git wt --init <zsh|bash>\n'
         exit 0
         ;;
@@ -110,14 +117,14 @@ fi
 
 say() { printf '%s\n' "$*" >&2; }
 
-if [ "$#" -ne 2 ]; then
+if [ "$#" -gt 2 ] || { [ "$do_remove" -eq 0 ] && [ "$#" -ne 2 ]; }; then
     say "${red}Usage: git wt <type> <name>${reset}"
     say "${dim}  e.g. git wt feat 1234-xyz${reset}"
     exit 1
 fi
 
-type=$1
-name=$2
+type=${1:-}
+name=${2:-}
 branch_name="$type/$name"
 
 if ! git_common=$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null); then
@@ -129,6 +136,38 @@ main_root=$(git worktree list --porcelain | sed -n '1s/^worktree //p')
 existing_path=$(git worktree list --porcelain |
     awk -v ref="refs/heads/$branch_name" '/^worktree /{p=substr($0,10)} $0=="branch "ref{print p; exit}')
 worktree_path=${existing_path:-"$main_root/.worktrees/$type/$name"}
+
+# Prints the main checkout's path so the `wt` wrapper steps out of a removed
+# worktree, and exits 3 under --no-provision for the same reason as a reused one.
+remove_worktrees() {
+    local paths path branch failed=0
+    if [ -n "$name" ]; then
+        paths=$existing_path
+    else
+        paths=$(git worktree list --porcelain | awk -v prefix="$main_root/.worktrees/${type:+$type/}" \
+            '/^worktree /{p=substr($0,10); if (index(p, prefix)==1) print p}')
+    fi
+    if [ -z "$paths" ]; then
+        say "${yellow}⚠  No worktrees to remove${reset}"
+        exit 1
+    fi
+    while IFS= read -r path; do
+        branch=$(git -C "$path" symbolic-ref -q --short HEAD || true)
+        if git -C "$main_root" worktree remove "$path" >&2; then
+            say "${dim}🗑  Removed ${path}${reset}"
+            if [ -n "$branch" ]; then git -C "$main_root" branch -d "$branch" >&2 || true; fi
+        else
+            failed=1
+        fi
+    done <<<"$paths"
+    rmdir "$main_root"/.worktrees/*/ 2>/dev/null || true
+    if [ "$failed" -eq 1 ]; then exit 1; fi
+    printf '%s\n' "$main_root"
+    if [ "$do_provision" -eq 0 ]; then exit 3; fi
+    exit 0
+}
+
+if [ "$do_remove" -eq 1 ]; then remove_worktrees; fi
 
 # Each worktree runs its own server; a stable per-branch port keeps them from colliding.
 # ponytail: hash can collide (~1/900), add a free-port scan if that ever bites.
