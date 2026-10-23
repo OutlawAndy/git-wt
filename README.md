@@ -38,7 +38,9 @@ eval "$(git wt --init zsh)"
 - `/.worktrees/` added to `.git/info/exclude`, if it isn't ignored already.
 - Copies of the gitignored files a fresh checkout lacks, when they exist: `config/master.key`, `config/credentials/{development,test}.key`, `.env`, `.env.local`, `.env.development.local`, `.env_overrides.rb` and `.vscode/settings.json`.
 - A copy-on-write clone of `storage/`. Without it, local Active Storage attachments are missing. On Rails 8 this also gives each worktree its own SQLite databases.
-- Your repo's `bin/worktree-setup`, or `bin/setup --skip-server` if there isn't one. It runs with `PORT` set to a fixed port derived from the branch name (3001–3900), so dev servers in different worktrees don't collide.
+- Your repo's `bin/worktree-setup`, or `bin/setup --skip-server` if there isn't one, or `bundle install` for a gem with neither. It runs with `PORT` set to a fixed port derived from the branch name (3001–3900), so dev servers in different worktrees don't collide.
+
+Your repo's `post-checkout` hook, if it has one, runs before all of this. If it fails, `git wt` warns and carries on, since the worktree already exists.
 
 ## Removing worktrees
 
