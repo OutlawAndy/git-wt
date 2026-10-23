@@ -72,7 +72,10 @@ Runs the repository's
 .Pa bin/worktree-setup ,
 or
 .Ql bin/setup --skip-server
-if there is no such hook.
+if there is no such hook, or
+.Ql bundle install
+if there is only a
+.Pa Gemfile .
 The hook must be idempotent.
 .El
 .Sh OPTIONS

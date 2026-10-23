@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- A failing `post-checkout` hook no longer aborts `git wt` after the worktree is created
+- A gem with no `bin/setup` is provisioned with `bundle install`
+- The `bin/dev` hint only shows when the repo has a `bin/dev`
+
 ## [v0.2.0] Oct 21, 2026
 
 - `git wt --remove [<type> [<name>]]` removes one worktree, every worktree of a type, or every worktree under `.worktrees/`, then deletes their merged branches

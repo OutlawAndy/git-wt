@@ -76,6 +76,20 @@ check "--remove keeps unmerged branches" git show-ref --verify --quiet refs/head
 git wt --remove >/dev/null 2>&1
 check "--remove with nothing to remove fails" [ $? -eq 1 ]
 
+printf '#!/bin/sh\nexit 1\n' >"$sandbox/app/.git/hooks/post-checkout"
+chmod +x "$sandbox/app/.git/hooks/post-checkout"
+path=$(git wt fix hook 2>/dev/null)
+check "survives a failing post-checkout hook" [ "$path" = "$sandbox/app/.worktrees/fix/hook" ]
+check "still copies secrets after a failing hook" [ -f "$path/config/master.key" ]
+rm "$sandbox/app/.git/hooks/post-checkout"
+
+mkdir "$sandbox/fakebin"
+printf '#!/bin/sh\ntouch bundled\n' >"$sandbox/fakebin/bundle"
+chmod +x "$sandbox/fakebin/bundle"
+touch Gemfile && git add Gemfile && git commit -q -m gem
+path=$(PATH="$sandbox/fakebin:$PATH" git wt --from HEAD feat gem 2>/dev/null)
+check "bundles a gem without bin/setup" [ -f "$path/bundled" ]
+
 check "--init prints a wt function" bash -c 'eval "$(git wt --init bash)" && declare -f wt >/dev/null'
 
 exit $((failures > 0))

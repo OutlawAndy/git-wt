@@ -185,8 +185,10 @@ provision() {
         hook=(./bin/worktree-setup)
     elif [ -x ./bin/setup ]; then
         hook=(./bin/setup --skip-server)
+    elif [ -f Gemfile ]; then
+        hook=(bundle install)
     else
-        say "${yellow}⚠  No bin/worktree-setup or bin/setup in this repo — skipping provisioning.${reset}"
+        say "${yellow}⚠  No bin/worktree-setup, bin/setup or Gemfile in this repo — skipping provisioning.${reset}"
         return
     fi
     say "${cyan}⚙  Provisioning via ${hook[*]}…${reset}"
@@ -198,7 +200,18 @@ provision() {
 }
 
 ready() {
-    say "${green}✔  Ready${reset} ${dim}— dev server: PORT=$dev_port bin/dev${reset}"
+    if [ -x bin/dev ]; then
+        say "${green}✔  Ready${reset} ${dim}— dev server: PORT=$dev_port bin/dev${reset}"
+    else
+        say "${green}✔  Ready${reset}"
+    fi
+}
+
+# A failing post-checkout hook fails `git worktree add`, though the worktree exists.
+add_worktree() {
+    git worktree add "$@" >&2 && return
+    [ -e "$worktree_path/.git" ] || exit 1
+    say "${yellow}⚠  post-checkout hook failed — continuing${reset}"
 }
 
 if [ "$do_create" -eq 0 ]; then
@@ -263,18 +276,18 @@ ignore_from() {
 
 if git show-ref --verify --quiet "refs/heads/$branch_name"; then
     ignore_from
-    git worktree add "$worktree_path" "$branch_name" >&2
+    add_worktree "$worktree_path" "$branch_name"
 elif [ -n "$remote_name" ] &&
     git ls-remote --exit-code --heads "$remote_name" "$branch_name" >/dev/null 2>&1; then
     ignore_from
     # Ensure the remote-tracking ref exists locally before creating the worktree.
     git fetch --no-tags "$remote_name" "$branch_name" >/dev/null 2>&1
-    git worktree add --track -b "$branch_name" "$worktree_path" "$remote_name/$branch_name" >&2
+    add_worktree --track -b "$branch_name" "$worktree_path" "$remote_name/$branch_name"
 else
     # --no-track: branching from origin/<default> must not make that its upstream.
     base=${from_ref:-$(default_base)}
     say "${dim}🌱  Branching from $base${reset}"
-    git worktree add --no-track -b "$branch_name" "$worktree_path" "$base" >&2
+    add_worktree --no-track -b "$branch_name" "$worktree_path" "$base"
 fi
 
 # Gitignored files a fresh checkout lacks: secrets, local env, editor config.
