@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## [v0.2.1] Oct 23, 2026
 
 - A failing `post-checkout` hook no longer aborts `git wt` after the worktree is created
 - A gem with no `bin/setup` is provisioned with `bundle install`
@@ -22,6 +22,7 @@
 - New worktrees get the gitignored Rails secrets and env files, a clone of `storage/`, and a per-branch `PORT`
 - `--init zsh|bash` prints the `wt` function that `cd`s into the worktree
 
+[v0.2.1]: https://github.com/OutlawAndy/git-wt/releases/tag/v0.2.1
 [v0.2.0]: https://github.com/OutlawAndy/git-wt/releases/tag/v0.2.0
 [v0.1.1]: https://github.com/OutlawAndy/git-wt/releases/tag/v0.1.1
 [v0.1.0]: https://github.com/OutlawAndy/git-wt/releases/tag/v0.1.0
