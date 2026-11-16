@@ -106,6 +106,24 @@ check "survives a failing post-checkout hook" [ "$path" = "$sandbox/app/.worktre
 check "still copies secrets after a failing hook" [ -f "$path/config/master.key" ]
 rm "$sandbox/app/.git/hooks/post-checkout"
 
+mkdir -p bin
+printf '#!/bin/sh\npwd >>"%s/torn"\n[ -z "$FAIL_TEARDOWN" ]\n' "$sandbox" >bin/worktree-teardown
+chmod +x bin/worktree-teardown
+git add bin && git commit -q -m teardown
+td=$(git wt --from HEAD fix td 2>/dev/null)
+touch "$td/untracked"
+git wt -r fix td >/dev/null 2>&1
+check "teardown never runs for a dirty worktree" [ ! -e "$sandbox/torn" ]
+rm "$td/untracked"
+FAIL_TEARDOWN=1 git wt -r fix td >/dev/null 2>&1
+check "a failing teardown keeps the worktree" [ $? -eq 1 -a -d "$td" -a "$(cat "$sandbox/torn")" = "$td" ]
+git wt -r fix td >/dev/null 2>&1
+check "--remove runs bin/worktree-teardown in the worktree" [ ! -e "$td" -a "$(tail -n 1 "$sandbox/torn")" = "$td" ]
+td=$(git wt --from HEAD fix td2 2>/dev/null)
+git wt -c fix td2 >/dev/null 2>&1
+check "-c runs bin/worktree-teardown" [ "$(tail -n 1 "$sandbox/torn")" = "$td" ]
+git checkout -q master
+
 mkdir "$sandbox/fakebin"
 printf '#!/bin/sh\ntouch bundled\n' >"$sandbox/fakebin/bundle"
 chmod +x "$sandbox/fakebin/bundle"

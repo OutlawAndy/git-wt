@@ -50,13 +50,18 @@ Your repo's `post-checkout` hook, if it has one, runs before all of this. If it 
 
 ## Removing worktrees
 
-`--remove` runs `git worktree remove` on each match, so a worktree with uncommitted changes or untracked files is left alone (gitignored files don't count). Each worktree's branch is then deleted with `git branch -d`, which keeps any that aren't merged. `wt --remove` moves you to the main checkout, in case you were standing in a worktree it removed.
+Before removing a worktree, `git wt` runs your repo's `bin/worktree-teardown` in it, if there is one, so the hook can undo what setup made, like dropping that worktree's database. `--remove` then runs `git worktree remove` on each match. A worktree with uncommitted changes or untracked files (gitignored files don't count), or whose teardown fails, is left alone, and its teardown never runs. Each worktree's branch is then deleted with `git branch -d`, which keeps any that aren't merged. `wt --remove` moves you to the main checkout, in case you were standing in a worktree it removed.
 
-`--checkout` (`-c`) moves a worktree's branch into the main checkout and removes the worktree, for when you'd rather finish the work there. It refuses, changing nothing, if the worktree has uncommitted or untracked files, or if the main checkout has local changes the checkout would overwrite. The branch is kept.
+`--checkout` (`-c`) moves a worktree's branch into the main checkout and removes the worktree, for when you'd rather finish the work there. It runs the teardown hook too. It refuses, changing nothing, if the worktree has uncommitted or untracked files, if teardown fails, or if the main checkout has local changes the checkout would overwrite. The branch is kept.
 
 ## What it doesn't do
 
-Worktrees share whatever Postgres databases `config/database.yml` names. To give each worktree its own, read the database name from an env var in `database.yml` and set it in `bin/worktree-setup`. Make sure the hook is safe to run more than once.
+Worktrees share whatever Postgres databases `config/database.yml` names. To give each worktree its own, read the name from an env var under `development:` in `database.yml`, for example `database: <%= ENV.fetch("DEV_DATABASE", "app_development") %>`. Then:
+
+- In `bin/worktree-setup`, set the var in `.env.development.local` and create the database. Make sure the hook is safe to run more than once.
+- In `bin/worktree-teardown`, drop the database: `dropdb --if-exists --force "$DEV_DATABASE"`.
+
+Avoid `DATABASE_URL` for this: Rails applies it to the test environment too. On Postgres 18, `CREATE DATABASE … TEMPLATE app_development STRATEGY FILE_COPY` after `SET file_copy_method = clone` copies the main database almost instantly on a copy-on-write filesystem like APFS. It fails while anything is connected to the template, such as the main checkout's dev server.
 
 ## For agents and scripts
 
