@@ -51,6 +51,14 @@ sibling=$(git wt -f HEAD feat b 2>/dev/null)
 check "creates siblings, not nested worktrees" [ "$sibling" = "$sandbox/app/.worktrees/feat/b" ]
 check "--from branches from the given ref" [ "$(git -C "$sibling" log -1 --format=%s)" = a-only ]
 
+touch "$sibling/untracked"
+list=$(git wt -l)
+printf '%s\n' "$list" | grep -Eq '^\* feat/a +:[0-9]+ +\.worktrees/feat/a *$'
+check "-l marks the current worktree and shows its port and path" [ $? -eq 0 ]
+printf '%s\n' "$list" | grep -Eq '^  feat/b .* 1 changed$'
+check "-l counts uncommitted changes" [ $? -eq 0 ]
+rm "$sibling/untracked"
+
 git -C "$sandbox/app" worktree add -q -b deps/x "$sandbox/app/.worktrees/x" master
 check "reuses a worktree that already has the branch" [ "$(git wt deps x 2>/dev/null)" = "$sandbox/app/.worktrees/x" ]
 
@@ -91,6 +99,7 @@ path=$(PATH="$sandbox/fakebin:$PATH" git wt --from HEAD feat gem 2>/dev/null)
 check "bundles a gem without bin/setup" [ -f "$path/bundled" ]
 
 check "--init prints a wt function" bash -c 'eval "$(git wt --init bash)" && declare -f wt >/dev/null'
+check "wt passes --list through" [ -n "$(bash -c 'eval "$(git wt --init bash)" && wt -l')" ]
 check "wt passes --version through" [ "$(bash -c 'eval "$(git wt --init bash)" && wt -v')" = "$(git wt --version)" ]
 
 exit $((failures > 0))
