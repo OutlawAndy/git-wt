@@ -10,6 +10,8 @@ git wt --remove feat             # remove every feat/ worktree
 git wt --remove                  # remove everything under .worktrees/
 ```
 
+Options have one-letter forms: `-f` is `--from`, `-r` is `--remove`, `-v` is `--version` and `-h` is `--help`.
+
 Every worktree lives at `<main checkout>/.worktrees/<type>/<name>`, whichever worktree you run it from. If the branch is already checked out somewhere, you get that worktree instead of a new one.
 
 ## Install

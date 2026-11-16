@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- Short flags: `-f` (`--from`), `-r` (`--remove`), `-v` (`--version`), and `--help` alongside `-h`
+- `wt -h` and `wt -v` print instead of trying to `cd` into their output
+
 ## [v0.2.1] Oct 23, 2026
 
 - A failing `post-checkout` hook no longer aborts `git wt` after the worktree is created
