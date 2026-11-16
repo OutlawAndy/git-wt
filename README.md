@@ -8,10 +8,11 @@ git wt --from HEAD feat 1234-v2  # branch off the one you're on
 git wt --remove feat 1234-login  # remove that worktree
 git wt --remove feat             # remove every feat/ worktree
 git wt --remove                  # remove everything under .worktrees/
+git wt -c feat 1234-login        # check it out in the main checkout instead
 git wt --list                    # every worktree, its PORT and uncommitted changes
 ```
 
-Options have one-letter forms: `-f` is `--from`, `-r` is `--remove`, `-l` is `--list`, `-v` is `--version` and `-h` is `--help`.
+Options have one-letter forms: `-f` is `--from`, `-r` is `--remove`, `-l` is `--list`, `-c` is `--checkout`, `-v` is `--version` and `-h` is `--help`.
 
 Every worktree lives at `<main checkout>/.worktrees/<type>/<name>`, whichever worktree you run it from. If the branch is already checked out somewhere, you get that worktree instead of a new one.
 
@@ -52,6 +53,8 @@ Your repo's `post-checkout` hook, if it has one, runs before all of this. If it 
 ## What it doesn't do
 
 Worktrees share whatever Postgres databases `config/database.yml` names. To give each worktree its own, read the database name from an env var in `database.yml` and set it in `bin/worktree-setup`. Make sure the hook is safe to run more than once.
+
+`--checkout` (`-c`) moves a worktree's branch into the main checkout and removes the worktree, for when you'd rather finish the work there. It refuses, changing nothing, if the worktree has uncommitted or untracked files, or if the main checkout has local changes the checkout would overwrite. The branch is kept.
 
 ## For agents and scripts
 
