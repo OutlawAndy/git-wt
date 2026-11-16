@@ -14,6 +14,8 @@
 .Fl r | -remove
 .Op Ar type Op Ar name
 .Nm git wt
+.Fl l | -list
+.Nm git wt
 .Fl -init Ar zsh | bash
 .Nm git wt
 .Fl v | -version | Fl h | -help
@@ -110,6 +112,13 @@ Prints the main checkout's path, so
 .Ic wt
 leaves a removed worktree; exits 3 under
 .Fl -no-provision .
+.It Fl l , Fl -list
+List every worktree with its branch, the
+.Ev PORT
+it was set up with, its path (relative to the main checkout), how many files
+have uncommitted changes, and how far it is ahead of or behind its upstream.
+The worktree you are in is marked with
+.Ql * .
 .It Fl -init Ar zsh | bash
 Print a
 .Ic wt

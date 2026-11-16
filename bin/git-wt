@@ -4,6 +4,7 @@
 #
 #   git wt <type> <name>      e.g. git wt feat 1234-xyz
 #   git wt -r | --remove [<type> [<name>]]
+#   git wt -l | --list
 #
 # Creates <main>/.worktrees/<type>/<name> on branch <type>/<name>, carries over
 # the gitignored files a Rails app needs to boot, provisions it via the repo's
@@ -40,7 +41,7 @@ shell_init() {
     zsh | bash)
         cat <<'SH'
 wt() {
-  case $1 in -h | --help | -v | --version) git wt "$@"; return ;; esac
+  case $1 in -h | --help | -l | --list | -v | --version) git wt "$@"; return ;; esac
   local dir rc
   dir=$(git wt --no-provision "$@"); rc=$?
   [[ -n $dir ]] || return $rc
@@ -59,6 +60,7 @@ SH
 do_create=1
 do_provision=1
 do_remove=0
+do_list=0
 from_ref=
 while [ "$#" -gt 0 ]; do
     case "$1" in
@@ -72,6 +74,10 @@ while [ "$#" -gt 0 ]; do
         ;;
     -r | --remove)
         do_remove=1
+        shift
+        ;;
+    -l | --list)
+        do_list=1
         shift
         ;;
     -f | --from)
@@ -89,6 +95,7 @@ while [ "$#" -gt 0 ]; do
     -h | --help)
         printf 'usage: git wt [-f | --from <ref>] [--no-provision | --provision-only] <type> <name>\n'
         printf '       git wt -r | --remove [<type> [<name>]]\n'
+        printf '       git wt -l | --list\n'
         printf '       git wt --init <zsh|bash>\n'
         exit 0
         ;;
@@ -104,7 +111,9 @@ while [ "$#" -gt 0 ]; do
     esac
 done
 
-if [ -t 2 ]; then
+out=2
+if [ "$do_list" -eq 1 ]; then out=1; fi
+if [ -t "$out" ]; then
     reset=$(tput sgr0 2>/dev/null || true)
     bold=$(tput bold 2>/dev/null || true)
     cyan=$(tput setaf 6 2>/dev/null || true)
@@ -118,7 +127,7 @@ fi
 
 say() { printf '%s\n' "$*" >&2; }
 
-if [ "$#" -gt 2 ] || { [ "$do_remove" -eq 0 ] && [ "$#" -ne 2 ]; }; then
+if [ "$#" -gt 2 ] || { [ "$do_remove" -eq 0 ] && [ "$do_list" -eq 0 ] && [ "$#" -ne 2 ]; }; then
     say "${red}Usage: git wt <type> <name>${reset}"
     say "${dim}  e.g. git wt feat 1234-xyz${reset}"
     exit 1
@@ -168,11 +177,57 @@ remove_worktrees() {
     exit 0
 }
 
-if [ "$do_remove" -eq 1 ]; then remove_worktrees; fi
-
 # Each worktree runs its own server; a stable per-branch port keeps them from colliding.
 # ponytail: hash can collide (~1/900), add a free-port scan if that ever bites.
-dev_port=$((3001 + $(printf '%s' "$branch_name" | cksum | cut -d' ' -f1) % 900))
+port_for() { printf '%s' $((3001 + $(printf '%s' "$1" | cksum | cut -d' ' -f1) % 900)); }
+
+# One row per worktree: branch, PORT, path (relative to the main checkout),
+# uncommitted changes and upstream tracking. `*` marks the one you're in.
+list_worktrees() {
+    local here key value path branch status track port
+    local -a branches=() ports=() paths=() notes=() marks=()
+    here=$(git rev-parse --show-toplevel 2>/dev/null || true)
+    while IFS=' ' read -r key value; do
+        case $key in
+        worktree) path=$value branch= status= ;;
+        branch) branch=${value#refs/heads/} ;;
+        detached) branch="(detached)" ;;
+        prunable) status=prunable ;;
+        '')
+            if [ -z "$status" ] && [ -d "$path" ]; then
+                status=$(git -C "$path" status --porcelain 2>/dev/null | wc -l | tr -d ' ')
+                if [ "$status" -eq 0 ]; then status=; else status="$status changed"; fi
+            fi
+            track= port=
+            if [ "$branch" != "(detached)" ]; then
+                track=$(git for-each-ref --format='%(upstream:track,nobracket)' "refs/heads/$branch")
+                if [ "$path" != "$main_root" ]; then port=":$(port_for "$branch")"; fi
+            fi
+            if [ "$path" = "$here" ]; then marks+=("*"); else marks+=(" "); fi
+            branches+=("$branch")
+            ports+=("$port")
+            path=${path#"$main_root"/}
+            paths+=("${path/#"$HOME"/~}")
+            notes+=("$status${status:+${track:+, }}$track")
+            ;;
+        esac
+    done < <(git worktree list --porcelain)
+    local i bw=0 pw=0
+    for i in "${!branches[@]}"; do
+        if [ "${#branches[i]}" -gt "$bw" ]; then bw=${#branches[i]}; fi
+        if [ "${#paths[i]}" -gt "$pw" ]; then pw=${#paths[i]}; fi
+    done
+    for i in "${!branches[@]}"; do
+        printf '%s %s%-*s%s  %-5s  %s%-*s%s  %s%s%s\n' "${marks[i]/\*/$green*$reset}" \
+            "$bold" "$bw" "${branches[i]}" "$reset" "${ports[i]}" \
+            "$dim" "$pw" "${paths[i]}" "$reset" "$yellow" "${notes[i]}" "$reset"
+    done
+}
+
+if [ "$do_list" -eq 1 ]; then list_worktrees; exit 0; fi
+if [ "$do_remove" -eq 1 ]; then remove_worktrees; fi
+
+dev_port=$(port_for "$branch_name")
 export PORT=$dev_port
 
 provision() {

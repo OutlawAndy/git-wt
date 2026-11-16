@@ -8,9 +8,10 @@ git wt --from HEAD feat 1234-v2  # branch off the one you're on
 git wt --remove feat 1234-login  # remove that worktree
 git wt --remove feat             # remove every feat/ worktree
 git wt --remove                  # remove everything under .worktrees/
+git wt --list                    # every worktree, its PORT and uncommitted changes
 ```
 
-Options have one-letter forms: `-f` is `--from`, `-r` is `--remove`, `-v` is `--version` and `-h` is `--help`.
+Options have one-letter forms: `-f` is `--from`, `-r` is `--remove`, `-l` is `--list`, `-v` is `--version` and `-h` is `--help`.
 
 Every worktree lives at `<main checkout>/.worktrees/<type>/<name>`, whichever worktree you run it from. If the branch is already checked out somewhere, you get that worktree instead of a new one.
 
