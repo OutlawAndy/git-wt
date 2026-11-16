@@ -51,6 +51,11 @@ sibling=$(git wt -f HEAD feat b 2>/dev/null)
 check "creates siblings, not nested worktrees" [ "$sibling" = "$sandbox/app/.worktrees/feat/b" ]
 check "--from branches from the given ref" [ "$(git -C "$sibling" log -1 --format=%s)" = a-only ]
 
+complete_bash() { bash -c 'eval "$(git wt --init bash)"; COMP_WORDS=("$@"); COMP_CWORD=$(($# - 1)); _git_wt; echo "${COMPREPLY[*]}"' _ "$@"; }
+check "bash completes existing types" [ "$(complete_bash wt '')" = feat ]
+check "bash completes names under a type for git wt" [ "$(complete_bash git wt -r feat '' | tr ' ' '\n' | sort | xargs)" = "a b" ]
+check "zsh registers completion for wt" zsh -fc 'autoload -Uz compinit && compinit -u -D && eval "$(git wt --init zsh)" && [[ $_comps[wt] == _git-wt ]]'
+
 touch "$sibling/untracked"
 list=$(git wt -l)
 printf '%s\n' "$list" | grep -Eq '^\* feat/a +:[0-9]+ +\.worktrees/feat/a *$'
