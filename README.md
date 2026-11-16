@@ -8,10 +8,11 @@ git wt --from HEAD feat 1234-v2  # branch off the one you're on
 git wt --remove feat 1234-login  # remove that worktree
 git wt --remove feat             # remove every feat/ worktree
 git wt --remove                  # remove everything under .worktrees/
+git wt -c feat 1234-login        # check it out in the main checkout instead
 git wt --list                    # every worktree, its PORT and uncommitted changes
 ```
 
-Options have one-letter forms: `-f` is `--from`, `-r` is `--remove`, `-l` is `--list`, `-v` is `--version` and `-h` is `--help`.
+Options have one-letter forms: `-f` is `--from`, `-r` is `--remove`, `-l` is `--list`, `-c` is `--checkout`, `-v` is `--version` and `-h` is `--help`.
 
 Every worktree lives at `<main checkout>/.worktrees/<type>/<name>`, whichever worktree you run it from. If the branch is already checked out somewhere, you get that worktree instead of a new one.
 
@@ -48,6 +49,8 @@ Your repo's `post-checkout` hook, if it has one, runs before all of this. If it 
 ## Removing worktrees
 
 `--remove` runs `git worktree remove` on each match, so a worktree with uncommitted changes or untracked files is left alone (gitignored files don't count). Each worktree's branch is then deleted with `git branch -d`, which keeps any that aren't merged. `wt --remove` moves you to the main checkout, in case you were standing in a worktree it removed.
+
+`--checkout` (`-c`) moves a worktree's branch into the main checkout and removes the worktree, for when you'd rather finish the work there. It refuses, changing nothing, if the worktree has uncommitted or untracked files, or if the main checkout has local changes the checkout would overwrite. The branch is kept.
 
 ## What it doesn't do
 

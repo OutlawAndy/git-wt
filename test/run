@@ -84,6 +84,16 @@ check "--remove keeps unmerged branches" git show-ref --verify --quiet refs/head
 git wt --remove >/dev/null 2>&1
 check "--remove with nothing to remove fails" [ $? -eq 1 ]
 
+co=$(git wt fix co 2>/dev/null)
+touch "$co/untracked"
+git wt -c fix co >/dev/null 2>&1
+check "-c refuses a dirty worktree" [ $? -eq 1 -a "$(git branch --show-current)" = master -a -d "$co" ]
+rm "$co/untracked"
+check "-c prints the main checkout" [ "$(git wt -c fix co 2>/dev/null)" = "$sandbox/app" ]
+check "-c checks the branch out in the main checkout" [ "$(git branch --show-current)" = fix/co ]
+check "-c removes the worktree" [ ! -e "$co" ]
+git checkout -q master
+
 printf '#!/bin/sh\nexit 1\n' >"$sandbox/app/.git/hooks/post-checkout"
 chmod +x "$sandbox/app/.git/hooks/post-checkout"
 path=$(git wt fix hook 2>/dev/null)
