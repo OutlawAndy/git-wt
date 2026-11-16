@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- `git wt -c <type> <name>` (`--checkout`) checks a worktree's branch out in the main checkout and removes the worktree
 - `git wt -l` (`--list`) lists every worktree with its branch, `PORT`, path, uncommitted changes and upstream tracking
 - Short flags: `-f` (`--from`), `-r` (`--remove`), `-v` (`--version`), and `--help` alongside `-h`
 - `wt -h` and `wt -v` print instead of trying to `cd` into their output

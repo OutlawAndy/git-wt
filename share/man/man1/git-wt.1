@@ -14,6 +14,10 @@
 .Fl r | -remove
 .Op Ar type Op Ar name
 .Nm git wt
+.Fl c | -checkout
+.Ar type
+.Ar name
+.Nm git wt
 .Fl l | -list
 .Nm git wt
 .Fl -init Ar zsh | bash
@@ -112,6 +116,16 @@ Prints the main checkout's path, so
 .Ic wt
 leaves a removed worktree; exits 3 under
 .Fl -no-provision .
+.It Fl c , Fl -checkout Ar type Ar name
+Check out branch
+.Ar type Ns / Ns Ar name
+in the main checkout and remove its worktree, so you can pick the work up in
+the main checkout.
+Refuses, changing nothing, when the worktree has modified or untracked files
+or when the checkout would overwrite local changes in the main checkout.
+The branch is kept.
+Prints the main checkout's path, like
+.Fl -remove .
 .It Fl l , Fl -list
 List every worktree with its branch, the
 .Ev PORT
@@ -148,12 +162,16 @@ The worktree is ready, or already existed.
 .It 1
 Usage error, not inside a git repository, or
 .Fl -remove
-matched nothing or could not remove a worktree.
+matched nothing or could not remove a worktree, or
+.Fl -checkout
+refused.
 .It 3
 With
 .Fl -no-provision :
 the worktree already existed, or
 .Fl -remove
+or
+.Fl -checkout
 succeeded, so there is nothing to provision.
 .El
 .Sh EXAMPLES

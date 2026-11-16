@@ -5,6 +5,7 @@
 #   git wt <type> <name>      e.g. git wt feat 1234-xyz
 #   git wt -r | --remove [<type> [<name>]]
 #   git wt -l | --list
+#   git wt -c | --checkout <type> <name>
 #
 # Creates <main>/.worktrees/<type>/<name> on branch <type>/<name>, carries over
 # the gitignored files a Rails app needs to boot, provisions it via the repo's
@@ -61,6 +62,7 @@ do_create=1
 do_provision=1
 do_remove=0
 do_list=0
+do_checkout=0
 from_ref=
 while [ "$#" -gt 0 ]; do
     case "$1" in
@@ -74,6 +76,10 @@ while [ "$#" -gt 0 ]; do
         ;;
     -r | --remove)
         do_remove=1
+        shift
+        ;;
+    -c | --checkout)
+        do_checkout=1
         shift
         ;;
     -l | --list)
@@ -96,6 +102,7 @@ while [ "$#" -gt 0 ]; do
         printf 'usage: git wt [-f | --from <ref>] [--no-provision | --provision-only] <type> <name>\n'
         printf '       git wt -r | --remove [<type> [<name>]]\n'
         printf '       git wt -l | --list\n'
+        printf '       git wt -c | --checkout <type> <name>\n'
         printf '       git wt --init <zsh|bash>\n'
         exit 0
         ;;
@@ -149,6 +156,13 @@ worktree_path=${existing_path:-"$main_root/.worktrees/$type/$name"}
 
 # Prints the main checkout's path so the `wt` wrapper steps out of a removed
 # worktree, and exits 3 under --no-provision for the same reason as a reused one.
+step_out() {
+    rmdir "$main_root"/.worktrees/*/ 2>/dev/null || true
+    printf '%s\n' "$main_root"
+    if [ "$do_provision" -eq 0 ]; then exit 3; fi
+    exit 0
+}
+
 remove_worktrees() {
     local paths path branch failed=0
     if [ -n "$name" ]; then
@@ -170,11 +184,28 @@ remove_worktrees() {
             failed=1
         fi
     done <<<"$paths"
-    rmdir "$main_root"/.worktrees/*/ 2>/dev/null || true
-    if [ "$failed" -eq 1 ]; then exit 1; fi
-    printf '%s\n' "$main_root"
-    if [ "$do_provision" -eq 0 ]; then exit 3; fi
-    exit 0
+    if [ "$failed" -eq 1 ]; then
+        rmdir "$main_root"/.worktrees/*/ 2>/dev/null || true
+        exit 1
+    fi
+    step_out
+}
+
+# Checks out the main checkout on the branch first, so a refusal (a conflicting
+# local change in main) leaves everything as it was.
+checkout_in_main() {
+    if [ -z "$existing_path" ] || [ "$existing_path" = "$main_root" ]; then
+        say "${red}✖  No worktree has ${branch_name} checked out${reset}"
+        exit 1
+    fi
+    if [ -n "$(git -C "$existing_path" status --porcelain)" ]; then
+        say "${red}✖  ${existing_path} has uncommitted changes${reset}"
+        exit 1
+    fi
+    git -C "$main_root" checkout --ignore-other-worktrees "$branch_name" >&2 || exit 1
+    git -C "$main_root" worktree remove "$existing_path" >&2 || exit 1
+    say "${dim}🗑  Removed ${existing_path}${reset}"
+    step_out
 }
 
 # Each worktree runs its own server; a stable per-branch port keeps them from colliding.
@@ -226,6 +257,7 @@ list_worktrees() {
 
 if [ "$do_list" -eq 1 ]; then list_worktrees; exit 0; fi
 if [ "$do_remove" -eq 1 ]; then remove_worktrees; fi
+if [ "$do_checkout" -eq 1 ]; then checkout_in_main; fi
 
 dev_port=$(port_for "$branch_name")
 export PORT=$dev_port
