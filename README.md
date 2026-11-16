@@ -6,7 +6,7 @@
 </div>
 <br/>
 
-Typed git worktrees, set up so your Rails app boots in every one of them.
+Worktrees that *work*, for humans and agents alike.
 
 ```sh
 git wt feat 1234-login
