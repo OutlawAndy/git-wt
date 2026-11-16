@@ -35,6 +35,8 @@ Then add the `wt` function to `~/.zshrc` (or `~/.bashrc`):
 eval "$(git wt --init zsh)"
 ```
 
+That also sets up tab completion of existing types and worktree names for both `wt` and `git wt`. In zsh, put it after `compinit`.
+
 `wt feat 1234-login` creates the worktree, `cd`s into it, and then runs setup. A script can't change your shell's directory, which is why the function exists. If you interrupt setup, you're still in the worktree.
 
 ## What a new worktree gets

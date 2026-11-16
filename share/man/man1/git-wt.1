@@ -143,6 +143,14 @@ and then changes into the worktree, setting it up after the
 so an interrupted setup still leaves you in place.
 Add it to your shell startup file:
 .Dl eval \&"$(git wt --init zsh)"
+.Pp
+It also defines completion for
+.Ic wt
+and
+.Ql git wt :
+existing types, then the names under a type, plus the options.
+In zsh, put the line after
+.Ic compinit .
 .It Fl v , Fl -version
 Print the version.
 .It Fl h , Fl -help
