@@ -84,6 +84,17 @@ if there is only a
 .Pa Gemfile .
 The hook must be idempotent.
 .El
+.Ss Teardown
+Before
+.Fl -remove
+or
+.Fl -checkout
+removes a worktree, it runs the repository's
+.Pa bin/worktree-teardown ,
+if there is one, inside that worktree.
+Use it to undo what the setup hook made, such as a per-worktree database.
+It never runs for a worktree with modified or untracked files, and if it
+fails, the worktree is kept.
 .Sh OPTIONS
 .Bl -tag -width Ds
 .It Fl f , Fl -from Ar ref
@@ -108,7 +119,9 @@ or, with no arguments, every worktree under
 .Pa .worktrees/ .
 Each goes through
 .Ql git worktree remove ,
-which refuses one with modified or untracked files; the rest are still removed.
+after the teardown hook.
+One with modified or untracked files, or whose teardown fails, is kept; the
+rest are still removed.
 Each removed worktree's branch is then deleted with
 .Ql git branch -d ,
 which keeps a branch that is not merged.
@@ -121,7 +134,9 @@ Check out branch
 .Ar type Ns / Ns Ar name
 in the main checkout and remove its worktree, so you can pick the work up in
 the main checkout.
-Refuses, changing nothing, when the worktree has modified or untracked files
+Runs the teardown hook first.
+Refuses, changing nothing, when the worktree has modified or untracked files,
+when the teardown hook fails,
 or when the checkout would overwrite local changes in the main checkout.
 The branch is kept.
 Prints the main checkout's path, like
@@ -199,7 +214,8 @@ Clean up after every feature branch at once:
 .Sh CAVEATS
 Worktrees share the Postgres databases named in
 .Pa config/database.yml
-unless the repository's setup hook gives each worktree its own.
+unless the repository's setup hook gives each worktree its own, and its
+teardown hook drops it.
 .Pp
 A SQLite database being written by a running server can be copied in an
 inconsistent state.
