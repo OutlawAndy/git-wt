@@ -50,11 +50,11 @@ Your repo's `post-checkout` hook, if it has one, runs before all of this. If it 
 
 `--remove` runs `git worktree remove` on each match, so a worktree with uncommitted changes or untracked files is left alone (gitignored files don't count). Each worktree's branch is then deleted with `git branch -d`, which keeps any that aren't merged. `wt --remove` moves you to the main checkout, in case you were standing in a worktree it removed.
 
+`--checkout` (`-c`) moves a worktree's branch into the main checkout and removes the worktree, for when you'd rather finish the work there. It refuses, changing nothing, if the worktree has uncommitted or untracked files, or if the main checkout has local changes the checkout would overwrite. The branch is kept.
+
 ## What it doesn't do
 
 Worktrees share whatever Postgres databases `config/database.yml` names. To give each worktree its own, read the database name from an env var in `database.yml` and set it in `bin/worktree-setup`. Make sure the hook is safe to run more than once.
-
-`--checkout` (`-c`) moves a worktree's branch into the main checkout and removes the worktree, for when you'd rather finish the work there. It refuses, changing nothing, if the worktree has uncommitted or untracked files, or if the main checkout has local changes the checkout would overwrite. The branch is kept.
 
 ## For agents and scripts
 
