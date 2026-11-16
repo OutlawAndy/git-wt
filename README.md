@@ -2,6 +2,7 @@
 
 <div>
   <img src="https://github.com/OutlawAndy/git-wt/actions/workflows/ci.yml/badge.svg" alt="CI">
+  <img src="https://img.shields.io/github/v/release/OutlawAndy/git-wt?label=homebrew&logo=homebrew" alt="Homebrew">
 </div>
 <br/>
 
