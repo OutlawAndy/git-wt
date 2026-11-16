@@ -3,7 +3,7 @@
 # git-wt — create or switch to a typed git worktree. User docs: man git-wt
 #
 #   git wt <type> <name>      e.g. git wt feat 1234-xyz
-#   git wt --remove [<type> [<name>]]
+#   git wt -r | --remove [<type> [<name>]]
 #
 # Creates <main>/.worktrees/<type>/<name> on branch <type>/<name>, carries over
 # the gitignored files a Rails app needs to boot, provisions it via the repo's
@@ -40,6 +40,7 @@ shell_init() {
     zsh | bash)
         cat <<'SH'
 wt() {
+  case $1 in -h | --help | -v | --version) git wt "$@"; return ;; esac
   local dir rc
   dir=$(git wt --no-provision "$@"); rc=$?
   [[ -n $dir ]] || return $rc
@@ -69,25 +70,25 @@ while [ "$#" -gt 0 ]; do
         do_create=0
         shift
         ;;
-    --remove)
+    -r | --remove)
         do_remove=1
         shift
         ;;
-    --from)
-        from_ref=${2:?--from needs a ref}
+    -f | --from)
+        from_ref=${2:?$1 needs a ref}
         shift 2
         ;;
     --init)
         shell_init "${2:-}"
         exit 0
         ;;
-    --version)
+    -v | --version)
         printf 'git-wt %s\n' "$VERSION"
         exit 0
         ;;
-    -h)
-        printf 'usage: git wt [--from <ref>] [--no-provision | --provision-only] <type> <name>\n'
-        printf '       git wt --remove [<type> [<name>]]\n'
+    -h | --help)
+        printf 'usage: git wt [-f | --from <ref>] [--no-provision | --provision-only] <type> <name>\n'
+        printf '       git wt -r | --remove [<type> [<name>]]\n'
         printf '       git wt --init <zsh|bash>\n'
         exit 0
         ;;

@@ -6,17 +6,17 @@
 .Nd create or switch to a typed, provisioned git worktree
 .Sh SYNOPSIS
 .Nm git wt
-.Op Fl -from Ar ref
+.Op Fl f | -from Ar ref
 .Op Fl -no-provision | Fl -provision-only
 .Ar type
 .Ar name
 .Nm git wt
-.Fl -remove
+.Fl r | -remove
 .Op Ar type Op Ar name
 .Nm git wt
 .Fl -init Ar zsh | bash
 .Nm git wt
-.Fl -version | Fl h
+.Fl v | -version | Fl h | -help
 .Sh DESCRIPTION
 .Nm
 checks out branch
@@ -80,7 +80,7 @@ The hook must be idempotent.
 .El
 .Sh OPTIONS
 .Bl -tag -width Ds
-.It Fl -from Ar ref
+.It Fl f , Fl -from Ar ref
 Start a new branch from
 .Ar ref
 (a branch, tag or commit; use
@@ -93,7 +93,7 @@ Exits 3 instead of 0 if the worktree already existed.
 .It Fl -provision-only
 Run the setup hook in the existing worktree for
 .Ar type Ns / Ns Ar name .
-.It Fl -remove Op Ar type Op Ar name
+.It Fl r , Fl -remove Op Ar type Op Ar name
 Remove the worktree for branch
 .Ar type Ns / Ns Ar name ,
 every worktree under
@@ -120,9 +120,9 @@ and then changes into the worktree, setting it up after the
 so an interrupted setup still leaves you in place.
 Add it to your shell startup file:
 .Dl eval \&"$(git wt --init zsh)"
-.It Fl -version
+.It Fl v , Fl -version
 Print the version.
-.It Fl h
+.It Fl h , Fl -help
 Print a usage line.
 .El
 .Sh ENVIRONMENT
