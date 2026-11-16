@@ -184,7 +184,7 @@ port_for() { printf '%s' $((3001 + $(printf '%s' "$1" | cksum | cut -d' ' -f1) %
 # One row per worktree: branch, PORT, path (relative to the main checkout),
 # uncommitted changes and upstream tracking. `*` marks the one you're in.
 list_worktrees() {
-    local here key value path branch status track
+    local here key value path branch status track port
     local -a branches=() ports=() paths=() notes=() marks=()
     here=$(git rev-parse --show-toplevel 2>/dev/null || true)
     while IFS=' ' read -r key value; do
@@ -198,13 +198,14 @@ list_worktrees() {
                 status=$(git -C "$path" status --porcelain 2>/dev/null | wc -l | tr -d ' ')
                 if [ "$status" -eq 0 ]; then status=; else status="$status changed"; fi
             fi
-            track=
+            track= port=
             if [ "$branch" != "(detached)" ]; then
                 track=$(git for-each-ref --format='%(upstream:track,nobracket)' "refs/heads/$branch")
+                if [ "$path" != "$main_root" ]; then port=":$(port_for "$branch")"; fi
             fi
             if [ "$path" = "$here" ]; then marks+=("*"); else marks+=(" "); fi
             branches+=("$branch")
-            if [ "$path" = "$main_root" ]; then ports+=(""); else ports+=(":$(port_for "$branch")"); fi
+            ports+=("$port")
             path=${path#"$main_root"/}
             paths+=("${path/#"$HOME"/~}")
             notes+=("$status${status:+${track:+, }}$track")
