@@ -50,12 +50,66 @@ wt() {
   (( rc == 3 )) || git wt --provision-only "$@" >/dev/null
 }
 SH
+        "${1}_completion"
         ;;
     *)
         printf 'git-wt: --init supports zsh or bash, not %s\n' "$1" >&2
         exit 1
         ;;
     esac
+}
+
+# Completes existing types, then the names under that type, for both `wt` and
+# `git wt` (git's own completion calls _git-wt in zsh and _git_wt in bash).
+zsh_completion() {
+    cat <<'SH'
+_git-wt() {
+  local root=${$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null):h}/.worktrees
+  _arguments -s \
+    '(- *)'{-h,--help}'[print usage]' \
+    '(- *)'{-v,--version}'[print the version]' \
+    '(- *)'{-l,--list}'[list worktrees]' \
+    '(- *)--init[print the wt shell function]:shell:(zsh bash)' \
+    '(-f --from)'{-f,--from}'[branch from a ref]:ref: ' \
+    '(-c --checkout -r --remove)'{-r,--remove}'[remove worktrees]' \
+    '(-c --checkout -r --remove)'{-c,--checkout}'[check the branch out in the main checkout]' \
+    '--no-provision[skip the setup hook]' \
+    '--provision-only[only run the setup hook]' \
+    '1:type:{compadd - $root/*(/N:t)}' \
+    '2:name:{compadd - $root/$line[1]/*(/N:t)}'
+}
+(( $+functions[compdef] )) && compdef _git-wt wt
+SH
+}
+
+bash_completion() {
+    cat <<'SH'
+_git_wt() {
+  local cur=${COMP_WORDS[COMP_CWORD]} root type= i=1 n=0
+  case ${COMP_WORDS[COMP_CWORD-1]} in
+  -f | --from) return ;;
+  --init) COMPREPLY=($(compgen -W 'zsh bash' -- "$cur")); return ;;
+  esac
+  if [[ $cur == -* ]]; then
+    COMPREPLY=($(compgen -W '-c --checkout -f --from -h --help -l --list -r --remove -v --version --init --no-provision --provision-only' -- "$cur"))
+    return
+  fi
+  root=$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null) || return
+  [[ ${COMP_WORDS[0]} == git ]] && i=2
+  for ((; i < COMP_CWORD; i++)); do
+    case ${COMP_WORDS[i]} in
+    -f | --from) ((i++)) ;;
+    -*) ;;
+    *) type=${type:-${COMP_WORDS[i]}}; ((n++)) ;;
+    esac
+  done
+  case $n in
+  0) COMPREPLY=($(cd "${root%/*}/.worktrees" 2>/dev/null && compgen -d -- "$cur")) ;;
+  1) COMPREPLY=($(cd "${root%/*}/.worktrees/$type" 2>/dev/null && compgen -d -- "$cur")) ;;
+  esac
+}
+complete -F _git_wt wt
+SH
 }
 
 do_create=1
