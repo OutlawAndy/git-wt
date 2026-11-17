@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## [v0.3.0] Nov 17, 2026
 
 - `git wt -l` (`--list`) lists every worktree with its branch, `PORT`, path, uncommitted changes and upstream tracking
 - `git wt -c <type> <name>` (`--checkout`) checks a worktree's branch out in the main checkout and removes the worktree
@@ -31,6 +31,7 @@
 - New worktrees get the gitignored Rails secrets and env files, a clone of `storage/`, and a per-branch `PORT`
 - `--init zsh|bash` prints the `wt` function that `cd`s into the worktree
 
+[v0.3.0]: https://github.com/OutlawAndy/git-wt/releases/tag/v0.3.0
 [v0.2.1]: https://github.com/OutlawAndy/git-wt/releases/tag/v0.2.1
 [v0.2.0]: https://github.com/OutlawAndy/git-wt/releases/tag/v0.2.0
 [v0.1.1]: https://github.com/OutlawAndy/git-wt/releases/tag/v0.1.1
