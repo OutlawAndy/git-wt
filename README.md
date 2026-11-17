@@ -1,76 +1,165 @@
 # git-wt
 
-Create or switch to a git worktree for a branch, set up so a Rails app boots in it.
+<div>
+  <img src="https://github.com/OutlawAndy/git-wt/actions/workflows/ci.yml/badge.svg" alt="CI">
+  <img src="https://img.shields.io/github/v/release/OutlawAndy/git-wt?label=homebrew&logo=homebrew" alt="Homebrew">
+</div>
+<br/>
+
+Worktrees that *work*, for humans and agents alike.
 
 ```sh
-git wt feat 1234-login           # new worktree on branch feat/1234-login
-git wt --from HEAD feat 1234-v2  # branch off the one you're on
-git wt --remove feat 1234-login  # remove that worktree
-git wt --remove feat             # remove every feat/ worktree
-git wt --remove                  # remove everything under .worktrees/
-git wt -c feat 1234-login        # check it out in the main checkout instead
-git wt --list                    # every worktree, its PORT and uncommitted changes
+git wt feat 1234-login
 ```
 
-Options have one-letter forms: `-f` is `--from`, `-r` is `--remove`, `-l` is `--list`, `-c` is `--checkout`, `-v` is `--version` and `-h` is `--help`.
+That creates branch `feat/1234-login` in its own worktree, copies over the secrets and env files git doesn't track, and runs your app's setup. If the branch is already checked out somewhere, you get that worktree instead.
 
-Every worktree lives at `<main checkout>/.worktrees/<type>/<name>`, whichever worktree you run it from. If the branch is already checked out somewhere, you get that worktree instead of a new one.
-
-## Install
+## Installation
 
 ```sh
 brew install rolemodel/rmr/git-wt
 ```
 
-Or in a Brewfile. Homebrew won't load a formula from a tap you haven't trusted, and `brew bundle` only trusts what the Brewfile says to:
+or in a Brewfile
 
 ```ruby
 tap "rolemodel/rmr", trusted: true
 brew "rolemodel/rmr/git-wt"
 ```
 
-Then add the `wt` function to `~/.zshrc` (or `~/.bashrc`):
+> [!NOTE]
+> Homebrew won't load a formula from a tap you haven't trusted, and `brew bundle` only trusts the taps your Brewfile says to. That's what `trusted: true` is for.
+
+## Setup
+
+Add the `wt` function to your _~/.zshrc_ (or _~/.bashrc_).
 
 ```sh
 eval "$(git wt --init zsh)"
 ```
 
-That also sets up tab completion of existing types and worktree names for both `wt` and `git wt`. In zsh, put it after `compinit`.
-
 `wt feat 1234-login` creates the worktree, `cd`s into it, and then runs setup. A script can't change your shell's directory, which is why the function exists. If you interrupt setup, you're still in the worktree.
 
-## What a new worktree gets
+The same line sets up tab completion of your existing types and worktree names, for both `wt` and `git wt`.
 
-- `/.worktrees/` added to `.git/info/exclude`, if it isn't ignored already.
-- Copies of the gitignored files a fresh checkout lacks, when they exist: `config/master.key`, `config/credentials/{development,test}.key`, `.env`, `.env.local`, `.env.development.local`, `.env_overrides.rb` and `.vscode/settings.json`.
-- A copy-on-write clone of `storage/`. Without it, local Active Storage attachments are missing. On Rails 8 this also gives each worktree its own SQLite databases.
-- Your repo's `bin/worktree-setup`, or `bin/setup --skip-server` if there isn't one, or `bundle install` for a gem with neither. It runs with `PORT` set to a fixed port derived from the branch name (3001–3900), so dev servers in different worktrees don't collide.
+> [!IMPORTANT]
+> In zsh, the `eval` line must come after `compinit`. Otherwise `git wt` still completes, but `wt` won't.
 
-Your repo's `post-checkout` hook, if it has one, runs before all of this. If it fails, `git wt` warns and carries on, since the worktree already exists.
+## Basic Usage
 
-## Removing worktrees
+```sh
+wt feat 1234-login           # new worktree on branch feat/1234-login
+wt -f HEAD feat 1234-v2      # branch off the one you're on
+wt -l                        # list your worktrees
+wt -c feat 1234-login        # finish up in the main checkout instead
+wt -r feat 1234-login        # remove that worktree
+wt -r feat                   # remove every feat/ worktree
+wt -r                        # remove everything under .worktrees/
+```
 
-Before removing a worktree, `git wt` runs your repo's `bin/worktree-teardown` in it, if there is one, so the hook can undo what setup made, like dropping that worktree's database. `--remove` then runs `git worktree remove` on each match. A worktree with uncommitted changes or untracked files (gitignored files don't count), or whose teardown fails, is left alone, and its teardown never runs. Each worktree's branch is then deleted with `git branch -d`, which keeps any that aren't merged. `wt --remove` moves you to the main checkout, in case you were standing in a worktree it removed.
+Every worktree lives at _&lt;main checkout&gt;/.worktrees/&lt;type&gt;/&lt;name&gt;_, whichever worktree you run it from, so worktrees are always siblings and never nested.
 
-`--checkout` (`-c`) moves a worktree's branch into the main checkout and removes the worktree, for when you'd rather finish the work there. It runs the teardown hook too. It refuses, changing nothing, if the worktree has uncommitted or untracked files, if teardown fails, or if the main checkout has local changes the checkout would overwrite. The branch is kept.
+New branches start from your remote's default branch, or from `--from <ref>`. An existing local or remote branch is checked out as is.
 
-## What it doesn't do
+## Options
 
-Worktrees share whatever Postgres databases `config/database.yml` names. To give each worktree its own, read the name from an env var under `development:` in `database.yml`, for example `database: <%= ENV.fetch("DEV_DATABASE", "app_development") %>`. Then:
+| Option                   | Description                                                                                         |
+| ------------------------ | --------------------------------------------------------------------------------------------------- |
+| `-f`, `--from <ref>`     | Start a new branch from `<ref>` instead of the default branch. `HEAD` branches off the one you're on |
+| `-l`, `--list`           | List every worktree with its branch, `PORT`, path, uncommitted changes and upstream tracking        |
+| `-c`, `--checkout`       | Check the branch out in the main checkout and remove its worktree                                   |
+| `-r`, `--remove`         | Remove one worktree, every worktree of a type, or all of them                                       |
+| `-v`, `--version`        | Print the version                                                                                   |
+| `-h`, `--help`           | Print usage                                                                                         |
+| `--init <zsh\|bash>`     | Print the `wt` function and tab completion                                                          |
+| `--no-provision`         | Create the worktree but skip setup. Exits 3 if the worktree already existed                         |
+| `--provision-only`       | Run setup in an existing worktree                                                                   |
 
-- In `bin/worktree-setup`, set the var in `.env.development.local` and create the database. Make sure the hook is safe to run more than once.
-- In `bin/worktree-teardown`, drop the database: `dropdb --if-exists --force "$DEV_DATABASE"`.
+See `man git-wt` for the details.
 
-Avoid `DATABASE_URL` for this: Rails applies it to the test environment too. On Postgres 18, `CREATE DATABASE … TEMPLATE app_development STRATEGY FILE_COPY` after `SET file_copy_method = clone` copies the main database almost instantly on a copy-on-write filesystem like APFS. It fails while anything is connected to the template, such as the main checkout's dev server.
+## What a New Worktree Gets
 
-## For agents and scripts
+- `/.worktrees/` added to _.git/info/exclude_, if it isn't ignored already.
+- Copies of the gitignored files a fresh checkout lacks, when they exist: _config/master.key_, _config/credentials/{development,test}.key_, _.env_, _.env.local_, _.env.development.local_, _.env_overrides.rb_ and _.vscode/settings.json_.
+- A copy-on-write clone of _storage/_, so local Active Storage attachments still show up. On Rails 8 this also gives each worktree its own SQLite databases.
+- A `PORT` derived from the branch name (3001–3900), so dev servers in different worktrees don't collide.
+- Your app's setup, run in the new worktree. See [Hooks](#hooks).
 
-Call `git wt` directly, not the `wt` function. The worktree's absolute path is the only thing written to stdout. With `--no-provision`, the exit status is 3 if the worktree already existed. See `man git-wt`.
+Your repo's `post-checkout` hook, if it has one, runs before all of this. If it fails, **git-wt** warns and carries on, since the worktree already exists.
+
+## Hooks
+
+**git-wt** doesn't decide what "set up" means for your app. Your repo does, with two optional executables.
+
+| Hook                   | Runs                                              | Fallback                                                                     |
+| ---------------------- | ------------------------------------------------- | ---------------------------------------------------------------------------- |
+| `bin/worktree-setup`    | in a new worktree, with `PORT` set                | `bin/setup --skip-server`, or `bundle install` for a gem with neither          |
+| `bin/worktree-teardown` | in a worktree about to be removed by `-r` or `-c` | nothing                                                                      |
+
+> [!IMPORTANT]
+> `bin/worktree-setup` must be safe to run more than once. `PORT` is only set for the hook, so persist it wherever your app reads its environment from.
+
+Teardown never runs for a worktree with uncommitted or untracked files, since that worktree stays put. If teardown fails, the worktree is kept too.
+
+## Removing Worktrees
+
+`--remove` tears down each matching worktree and runs `git worktree remove` on it. A worktree with uncommitted changes or untracked files is left alone (gitignored files don't count). Each removed worktree's branch is then deleted with `git branch -d`, which keeps any that aren't merged.
+
+`--checkout` is for when you'd rather finish the work in the main checkout. It checks the branch out there and removes the worktree. It refuses, changing nothing, if the worktree has uncommitted or untracked files, if teardown fails, or if the checkout would overwrite local changes in the main checkout. The branch is kept.
+
+Either way, `wt` moves you to the main checkout, in case you were standing in a worktree it just removed.
+
+## Per-Worktree Databases
+
+Out of the box, worktrees share whatever Postgres databases _config/database.yml_ names. With the [hooks](#hooks), each worktree can have its own.
+
+Read the database name from an env var, under `development:` only.
+
+```yaml
+development:
+  <<: *default
+  database: <%= ENV.fetch("DEV_DATABASE", "app_development") %>
+```
+
+Then, in `bin/worktree-setup`, pick a name, set `DEV_DATABASE` wherever your app loads its environment from, and create the database. In `bin/worktree-teardown`, drop it.
+
+```sh
+dropdb --if-exists --force "$DEV_DATABASE"
+```
+
+> [!WARNING]
+> `DATABASE_URL` is a special env variable that should be avoided in local development. When present, it overrides _config/database.yml_ regardless of `Rails.env`.
+
+> [!TIP]
+> Rails doesn't read _.env_ files itself. If your app uses [dotenv], set `DEV_DATABASE` in _.env.development.local_, which dotenv only loads in development. **git-wt** copies that file from the main checkout, so have your hook change the one line rather than overwrite the file.
+
+On Postgres 18, the new database can start as a copy of your main one, almost instantly and with no extra disk on a copy-on-write filesystem like APFS.
+
+```sql
+SET file_copy_method = clone;
+CREATE DATABASE app_dev_1234_login TEMPLATE app_development STRATEGY FILE_COPY;
+```
+
+Older versions accept the same `CREATE DATABASE` without the `SET`, but make a full copy. In every version, it fails while anything is connected to the template, like the main checkout's dev server.
+
+## For Agents and Scripts
+
+Call `git wt` directly, not the `wt` function. The worktree's absolute path is the only thing written to stdout, so this works:
+
+```sh
+cd "$(git wt fix 99-typo)" && $EDITOR .
+```
+
+With `--no-provision`, the exit status is 3 when there's nothing to set up: the worktree already existed, or `--remove` or `--checkout` succeeded.
 
 ## Development
 
-```sh
-test/run
-```
+Run the test suite with `test/run`.
 
-To release, run the **Release** workflow from the Actions tab and pick a version bump. It bumps `VERSION` in `bin/git-wt`, moves the Unreleased notes in `CHANGELOG.md` under the new version, then tags and publishes a GitHub release. The tap picks up the new release on its own.
+To release, run the **Release** workflow from the Actions tab and pick a version bump. It bumps `VERSION` in _bin/git-wt_, moves the Unreleased notes in _CHANGELOG.md_ under the new version, then tags and publishes a GitHub release. The tap picks up the new release on its own.
+
+## Acknowledgments
+
+**git-wt** is [MIT-licensed](LICENSE), open-source software.
+
+[dotenv]: https://github.com/bkeepers/dotenv

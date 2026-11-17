@@ -2,10 +2,10 @@
 
 ## Unreleased
 
-- `--remove` and `--checkout` run the repo's `bin/worktree-teardown` in a worktree before removing it
-- Tab completion of existing types and worktree names for `wt` and `git wt`, in zsh and bash, set up by `--init`
-- `git wt -c <type> <name>` (`--checkout`) checks a worktree's branch out in the main checkout and removes the worktree
 - `git wt -l` (`--list`) lists every worktree with its branch, `PORT`, path, uncommitted changes and upstream tracking
+- `git wt -c <type> <name>` (`--checkout`) checks a worktree's branch out in the main checkout and removes the worktree
+- `--remove` and `--checkout` run the repo's `bin/worktree-teardown` in a worktree before removing it. It never runs for a dirty worktree, and if it fails the worktree is kept
+- Tab completion of existing types and worktree names for `wt` and `git wt`, in zsh and bash, set up by `--init`. In zsh, the `eval` line must come after `compinit`
 - Short flags: `-f` (`--from`), `-r` (`--remove`), `-v` (`--version`), and `--help` alongside `-h`
 - `wt -h` and `wt -v` print instead of trying to `cd` into their output
 
