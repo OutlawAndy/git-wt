@@ -448,7 +448,7 @@ fi
 
 # Gitignored files a fresh checkout lacks: secrets, local env, editor config.
 for rel_path in config/master.key config/credentials/development.key config/credentials/test.key \
-    .env .env.local .env.development.local .env_overrides.rb .vscode/settings.json; do
+    .env .env.local .env.development.local .env.test.local .env_overrides.rb .vscode/settings.json; do
     if [ -f "$main_root/$rel_path" ]; then
         mkdir -p "$(dirname "$worktree_path/$rel_path")"
         cp "$main_root/$rel_path" "$worktree_path/$rel_path"

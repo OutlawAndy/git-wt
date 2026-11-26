@@ -80,7 +80,7 @@ See `man git-wt` for the details.
 ## What a New Worktree Gets
 
 - `/.worktrees/` added to _.git/info/exclude_, if it isn't ignored already.
-- Copies of the gitignored files a fresh checkout lacks, when they exist: _config/master.key_, _config/credentials/{development,test}.key_, _.env_, _.env.local_, _.env.development.local_, _.env_overrides.rb_ and _.vscode/settings.json_.
+- Copies of the gitignored files a fresh checkout lacks, when they exist: _config/master.key_, _config/credentials/{development,test}.key_, _.env_, _.env.local_, _.env.development.local_, _.env.test.local_, _.env_overrides.rb_ and _.vscode/settings.json_.
 - A copy-on-write clone of _storage/_, so local Active Storage attachments still show up. On Rails 8 this also gives each worktree its own SQLite databases.
 - A `PORT` derived from the branch name (3001–3900), so dev servers in different worktrees don't collide.
 - Your app's setup, run in the new worktree. See [Hooks](#hooks).
