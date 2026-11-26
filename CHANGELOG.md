@@ -1,5 +1,9 @@
 # Changelog
 
+## [v0.3.1] Nov 26, 2026
+
+- Copy .env.test.local into new worktrees (#10)
+
 ## [v0.3.0] Nov 17, 2026
 
 - `git wt -l` (`--list`) lists every worktree with its branch, `PORT`, path, uncommitted changes and upstream tracking
@@ -31,6 +35,7 @@
 - New worktrees get the gitignored Rails secrets and env files, a clone of `storage/`, and a per-branch `PORT`
 - `--init zsh|bash` prints the `wt` function that `cd`s into the worktree
 
+[v0.3.1]: https://github.com/OutlawAndy/git-wt/releases/tag/v0.3.1
 [v0.3.0]: https://github.com/OutlawAndy/git-wt/releases/tag/v0.3.0
 [v0.2.1]: https://github.com/OutlawAndy/git-wt/releases/tag/v0.2.1
 [v0.2.0]: https://github.com/OutlawAndy/git-wt/releases/tag/v0.2.0
